@@ -2,38 +2,40 @@ import streamlit as st
 import cohere
 import openai
 import os.path
-from cohere.classify import Example
+from cohere.responses.classify import Example
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
-COHERE_API_KEY = 'XXXXXXXXXXXXXXX'
+COHERE_API_KEY = 'secret'
 co_client = cohere.Client(COHERE_API_KEY)
 
-api_key='AIzaSyBVELSj3MCNsmFQRtr7a6DTLodBXIdXO4A'
+api_key = 'secret'
 
 # Google Sheets API configuration
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SPREADSHEET_ID = '1-tlggreTx5Wk1fPAdhfkC0LjdEnuyh5pkluXdH13At4'
 LEADERBOARD_RANGE = 'Sheet1!A2:C'
+
 
 # Get Google Sheets API credentials
 
 def get_credentials():
     creds = None
-    if os.path.exists('/Users/vaughn.robinson/Downloads/token.json'):
-        creds = Credentials.from_authorized_user_file('/Users/vaughn.robinson/Downloads/token.json', SCOPES)
+    if os.path.exists('token.json'):
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                '/Users/vaughn.robinson/Downloads/credentials.json', SCOPES)
+                'credentials.json', SCOPES)
             creds = flow.run_local_server(port=0)
-        with open('/Users/vaughn.robinson/Downloads/token.json', 'w') as token:
+        with open('token.json', 'w') as token:
             token.write(creds.to_json())
     return creds
+
 
 # Function to read leaderboard data from Google Sheets
 
@@ -42,11 +44,12 @@ def get_leaderboard_data():
     creds = get_credentials()
     service = build('sheets', 'v4', credentials=creds, developerKey=api_key)
     result = service.spreadsheets().values().get(
-    spreadsheetId=SPREADSHEET_ID, range=LEADERBOARD_RANGE).execute()
+        spreadsheetId=SPREADSHEET_ID, range=LEADERBOARD_RANGE).execute()
     values = result.get('values', [])
     leaderboard = [LeaderboardEntry(
         row[0], row[1], float(row[2])) for row in values]
     return leaderboard
+
 
 # Function to write leaderboard data to Google Sheets
 
@@ -55,12 +58,17 @@ def update_leaderboard_data(leaderboard):
     creds = get_credentials()
     service = build('sheets', 'v4', credentials=creds, developerKey=api_key)
     values = [[entry.username, entry.comment, entry.score]
-              for entry in leaderboard]
+               for entry in leaderboard]
+
+    #values = [['pat', 'like', 9]]
+
+
     body = {'values': values}
     result = service.spreadsheets().values().update(
         spreadsheetId=SPREADSHEET_ID, range=LEADERBOARD_RANGE,
         valueInputOption='RAW', body=body).execute()
-        
+
+
 st.set_page_config(page_title="Snark Attack v2", layout="wide")
 st.title("Snark Attack v2")
 
@@ -81,7 +89,7 @@ def display_leaderboard():
     st.sidebar.title("Leaderboard")
     for i, entry in enumerate(leaderboard):
         st.sidebar.markdown(
-            f"{i+1}. {entry.username}: {entry.comment} ({entry.score})")
+            f"{i + 1}. {entry.username}: {entry.comment} ({entry.score})")
 
 
 display_leaderboard()
@@ -95,6 +103,22 @@ with st.form(key='comment_form'):
 if submit_button:
     progress_bar.progress(25)
     examples = [
+        Example("you are hot trash", "Toxic"),
+        Example("go to hell", "Toxic"),
+        Example("get rekt moron", "Toxic"),
+        Example("get a brain and use it", "Toxic"),
+        Example("say what you mean, you jerk.", "Toxic"),
+        Example("Are you really this stupid", "Toxic"),
+        Example("I will honestly kill you", "Toxic"),
+        Example("yo how are you", "Benign"),
+        Example("I'm curious, how did that happen", "Benign"),
+        Example("Try that again", "Benign"),
+        Example("Hello everyone, excited to be here", "Benign"),
+        Example("I think I saw it first", "Benign"),
+        Example("That is an interesting point", "Benign"),
+        Example("I love this", "Benign"),
+        Example("We should try that sometime", "Benign"),
+        Example("You should go for it", "Benign")
     ]
     inputs = [comment]
     response = co_client.classify(model='small', inputs=inputs, examples=examples)
@@ -112,7 +136,7 @@ if submit_button:
         break
     update_leaderboard_data(leaderboard)
 
-openai.api_key = "sk-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+openai.api_key = "secret"
 response = openai.ChatCompletion.create(
     model="gpt-3.5-turbo",
     messages=[
